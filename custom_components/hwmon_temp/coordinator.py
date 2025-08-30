@@ -41,7 +41,13 @@ def _resolve_device_path(hwmon_path: Path) -> Optional[Path]:
 def _scan_hwmon_temperatures() -> List[TemperatureReading]:
     results: List[TemperatureReading] = []
 
-    for hwmon in sorted(SYS_CLASS_HWMON.glob("hwmon*")):
+    hwmon_dirs = list(SYS_CLASS_HWMON.glob("hwmon*"))
+    if not hwmon_dirs:
+        LOGGER.warning(
+            "No hwmon devices found in /sys/class/hwmon. This may indicate that hardware monitoring is not available or not properly configured. If you're running Home Assistant inside of a virtual machine, this is expected if /sys/class/hwmon/ is not shared from host machine to the guest machine."
+        )
+
+    for hwmon in sorted(hwmon_dirs):
         name = _read_text_file(hwmon / "name") or ""
         device_path = _resolve_device_path(hwmon)
 

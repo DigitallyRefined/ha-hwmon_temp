@@ -133,6 +133,8 @@ automation:
 
 ### No Temperature Sensors Found
 
+**Note** this may not work correctly if you're running Home Assistant inside of a virtual machine, unless `/sys/class/hwmon/` is specifically shared from host machine to the guest machine.
+
 1. **Check kernel modules**:
 
    ```bash
