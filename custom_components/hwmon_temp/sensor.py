@@ -3,8 +3,8 @@ from __future__ import annotations
 from typing import Any
 
 from homeassistant.components.sensor import (
-    SensorEntity,
     SensorDeviceClass,
+    SensorEntity,
     SensorStateClass,
 )
 from homeassistant.config_entries import ConfigEntry
@@ -23,7 +23,7 @@ async def async_setup_entry(
     coordinator: HwmonCoordinator = hass.data[DOMAIN][entry.entry_id]
 
     entities: list[HwmonTempSensor] = []
-    for key, reading in coordinator.data.items():
+    for key in coordinator.data:
         entities.append(HwmonTempSensor(coordinator, entry.entry_id, key))
 
     async_add_entities(entities)
