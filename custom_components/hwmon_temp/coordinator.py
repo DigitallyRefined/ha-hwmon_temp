@@ -1,13 +1,11 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Optional
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
-import logging
-
 
 LOGGER = logging.getLogger(__name__)
 
@@ -23,23 +21,34 @@ class TemperatureReading:
     temperature_c: float
 
 
-def _read_text_file(path: Path) -> Optional[str]:
+def _read_text_file(path: Path) -> str | None:
     try:
         return path.read_text(encoding="utf-8").strip()
-    except Exception:
+    except (OSError, ValueError):
         return None
 
 
-def _resolve_device_path(hwmon_path: Path) -> Optional[Path]:
+def _resolve_device_path(hwmon_path: Path) -> Path | None:
     try:
         device_link = (hwmon_path / "device").resolve(strict=False)
         return device_link
-    except Exception:
+    except (OSError, RuntimeError):
         return None
 
 
-def _scan_hwmon_temperatures() -> List[TemperatureReading]:
-    results: List[TemperatureReading] = []
+def _parse_temperature(raw_text: str) -> int | None:
+    try:
+        return int(raw_text)
+    except ValueError:
+        try:
+            return int(float(raw_text))
+        except ValueError:
+            LOGGER.debug("Unable to parse temperature from %r", raw_text)
+            return None
+
+
+def _scan_hwmon_temperatures() -> list[TemperatureReading]:
+    results: list[TemperatureReading] = []
 
     hwmon_dirs = list(SYS_CLASS_HWMON.glob("hwmon*"))
     if not hwmon_dirs:
@@ -93,14 +102,9 @@ def _scan_hwmon_temperatures() -> List[TemperatureReading]:
             raw_text = _read_text_file(input_file)
             if raw_text is None:
                 continue
-            try:
-                raw_value = int(raw_text)
-            except ValueError:
-                # Some files might be non-integer; try float
-                try:
-                    raw_value = int(float(raw_text))
-                except Exception:
-                    continue
+            raw_value = _parse_temperature(raw_text)
+            if raw_value is None:
+                continue
 
             temp_c = round(raw_value / 1000.0, 1)
 
@@ -119,7 +123,7 @@ def _scan_hwmon_temperatures() -> List[TemperatureReading]:
     return results
 
 
-class HwmonCoordinator(DataUpdateCoordinator[Dict[str, TemperatureReading]]):
+class HwmonCoordinator(DataUpdateCoordinator[dict[str, TemperatureReading]]):
     def __init__(self, hass: HomeAssistant, update_interval) -> None:
         super().__init__(
             hass,
@@ -128,8 +132,8 @@ class HwmonCoordinator(DataUpdateCoordinator[Dict[str, TemperatureReading]]):
             update_interval=update_interval,
         )
 
-    async def _async_update_data(self) -> Dict[str, TemperatureReading]:
-        readings: List[TemperatureReading] = await self.hass.async_add_executor_job(
+    async def _async_update_data(self) -> dict[str, TemperatureReading]:
+        readings: list[TemperatureReading] = await self.hass.async_add_executor_job(
             _scan_hwmon_temperatures
         )
         return {reading.unique_key: reading for reading in readings}

@@ -11,7 +11,6 @@ from .const import (
 )
 from .coordinator import HwmonCoordinator
 
-
 PLATFORMS: list[str] = ["sensor"]
 
 
